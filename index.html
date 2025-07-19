@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Geoportal Institucional de Gestión</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body { margin: 0; height: 100vh; font-family: 'Segoe UI', Arial, sans-serif; background: #f2f5fa; }
+    #main { display: flex; height: 100vh; }
+    #sidebar {
+      width: 320px; background: #f7f7f7; padding: 1.5rem 1rem 1rem 1.5rem;
+      box-shadow: 2px 0 10px rgba(0,0,0,0.07); overflow-y: auto;
+      display: flex; flex-direction: column;
+    }
+    #map { flex: 1; }
+    h1 { font-size: 2.1rem; font-weight: 700; color: #254260; margin: 0 0 0.6em 0; }
+    h2 { margin: 1.3em 0 0.5em; font-size: 1.15em; color: #2e5568;}
+    .leyenda {
+      background: #fff; border-radius: 12px; box-shadow: 0 1px 6px #0002;
+      padding: 0.7em 1em 0.8em; margin-bottom: 1.3em; font-size: 1em;
+    }
+    .leyenda span { display: flex; align-items: center; margin-bottom: .35em;}
+    .leyenda .legend-color {
+      display: inline-block; width: 17px; height: 17px; border-radius:4px; margin-right: 8px; border: 1px solid #bbb;
+    }
+    label { display: block; margin: 0.7rem 0 0.2rem; }
+    select, .layer-toggle, input[type=text] {
+      width: 100%; margin-bottom: 0.8rem; padding: 0.5rem;
+      border-radius: 7px; border: 1px solid #ddd; font-size: 1em;
+    }
+    .layer-toggle { display: flex; align-items: center; margin-bottom:0.45em;}
+    .layer-toggle input { margin-right: 0.55rem; }
+    #clear-filter {
+      background: #e4e4e4; border:none; padding:0.4rem 0.6rem; border-radius:7px; cursor:pointer;
+      width:100%; margin-top:0.2rem; transition: background .17s;
+    }
+    #clear-filter:hover { background:#d1e7dd; color:#205b46;}
+    .reporte-box {
+      background: #fdfdfd; margin-top: 1.2em; padding: 1em 1em 1.2em; border-radius: 13px;
+      box-shadow: 0 2px 10px #0001;
+      border: 1px solid #d4ecfa;
+    }
+    .reporte-box h3 { margin: 0 0 0.6em 0; font-size:1.14em; color:#2b2b4c;}
+    .reporte-box input, .reporte-box select, .reporte-box textarea {
+      width: 100%; margin-bottom: 0.9em; border: 1px solid #c2c2c2;
+      border-radius: 7px; padding: .55em .75em; font-size: 1em;
+      font-family: inherit;
+    }
+    .reporte-box textarea { min-height: 60px; resize: vertical; }
+    .reporte-box button {
+      background: #2177bd; color: #fff; border: none; border-radius: 7px;
+      padding: 0.52em 1.5em; font-size: 1.05em; font-weight: 500;
+      cursor: pointer; transition: background .2s;
+    }
+    .reporte-box button:hover { background: #165788; }
+    .reporte-box .ubic-btn {
+      background: #49a776; margin-bottom: 1em;
+    }
+    .reporte-msg-ok { color: #158031; font-size: 1em; font-weight: 600; margin-bottom:.4em;}
+    .reporte-msg-error { color: #b01c1c; font-size: .97em; margin-bottom:.4em;}
+  </style>
+</head>
+<body>
+  <div id="main">
+    <div id="sidebar">
+      <h1>Geoportal Institucional</h1>
+      <div class="leyenda">
+        <strong>Leyenda:</strong>
+        <span><span class="legend-color" style="background:#7fd37c"></span> Geocerca (por ruta)</span>
+        <span><span class="legend-color" style="background:#4b8eda"></span> Contenedores</span>
+        <span><span class="legend-color" style="background:#fbac36"></span> Microrutas</span>
+        <span><span class="legend-color" style="background:#9966cc"></span> Islas Soterradas</span>
+        <span><span class="legend-color" style="background:#f35c57"></span> Barrido Manual</span>
+      </div>
+      <h2>Capas</h2>
+      <div id="layer-controls"></div>
+      <!-- ... filtros ... -->
+      <div class="reporte-box" id="reporte-box">
+        <h3>Formulario de Reporte de Problemas</h3>
+        <form id="form-reporte" autocomplete="off">
+          <label>Nombre:
+            <input type="text" name="nombre" id="rep-nombre" required maxlength="60">
+          </label>
+          <label>Tipo de problema:
+            <input type="text" name="tipo" id="rep-tipo" required maxlength="60">
+          </label>
+          <label>Observaciones:
+            <textarea name="obs" id="rep-obs" maxlength="200"></textarea>
+          </label>
+          <label>Latitud:
+            <input type="text" name="lat" id="rep-lat" required>
+          </label>
+          <label>Longitud:
+            <input type="text" name="lng" id="rep-lng" required>
+          </label>
+          <button type="button" class="ubic-btn" onclick="ubicarReporte()">Usar mi ubicación actual 📍</button>
+          <button type="submit">Enviar</button>
+          <div id="reporte-msg"></div>
+        </form>
+      </div>
+    </div>
+    <div id="map"></div>
+  </div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    // --- Mapa base ---
+    const map = L.map('map').setView([-0.17915, -78.49755], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OSM contributors'
+    }).addTo(map);
+
+    // --- Carga capas desde Supabase ---
+    const SUPABASE_URL = "https://xcxvirclgwdrohwafqfa.supabase.co";
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhjeHZpcmNsZ3dkcm9od2FmcWZhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAxMjA2NTcsImV4cCI6MjA2NTY5NjY1N30.Z1Z7lHQwD9Gfvh8-D-j_gmuEc4fto9roC3_BVTcjuZ8";
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    const capas = [
+      { nombre: "geocerca_geojson", color: "#7fd37c" },
+      { nombre: "contenedores_geojson", color: "#4b8eda" },
+      { nombre: "microrutas_geojson", color: "#fbac36" },
+      { nombre: "islas_soterradas_geojson", color: "#9966cc" },
+      { nombre: "barrido_manual_geojson", color: "#f35c57" }
+    ];
+
+    const leafletLayers = {};
+    const layerControlsDiv = document.getElementById('layer-controls');
+
+    // --- Solo geocerca activada al inicio ---
+    capas.forEach((capa, i) => {
+      const id = "capa_" + capa.nombre;
+      const div = document.createElement('div');
+      div.className = "layer-toggle";
+      const chk = document.createElement('input');
+      chk.type = "checkbox";
+      chk.id = id;
+      chk.checked = capa.nombre === "geocerca_geojson";
+      div.appendChild(chk);
+      const lbl = document.createElement('label');
+      lbl.htmlFor = id;
+      lbl.textContent = capa.nombre.replace("_geojson", "");
+      div.appendChild(lbl);
+      layerControlsDiv.appendChild(div);
+
+      chk.addEventListener('change', async () => {
+        if (chk.checked) {
+          if (!leafletLayers[capa.nombre]) await cargarCapa(capa.nombre, capa.color);
+          map.addLayer(leafletLayers[capa.nombre]);
+        } else {
+          if (leafletLayers[capa.nombre]) map.removeLayer(leafletLayers[capa.nombre]);
+        }
+      });
+
+      // Solo geocerca activa
+      if (chk.checked) {
+        cargarCapa(capa.nombre, capa.color);
+      }
+    });
+
+    async function cargarCapa(nombre, color) {
+      const { data, error } = await supabaseClient.from(nombre).select("*, geom_json");
+      if (error || !data) return;
+      const features = data.map(row => ({
+        type: "Feature",
+        geometry: typeof row.geom_json === "string" ? JSON.parse(row.geom_json) : row.geom_json,
+        properties: row
+      }));
+      if (leafletLayers[nombre]) map.removeLayer(leafletLayers[nombre]);
+      leafletLayers[nombre] = L.geoJSON(features, {
+        style: { color },
+        pointToLayer: (f, latlng) => L.circleMarker(latlng, { radius: 6, color }),
+        onEachFeature: (f, l) => l.bindPopup("<b>Propiedades:</b><br><pre>" + JSON.stringify(f.properties, null, 2) + "</pre>")
+      });
+      if (nombre === "geocerca_geojson") leafletLayers[nombre].addTo(map);
+    }
+
+    // --- Formulario reporte de problemas ---
+    function ubicarReporte() {
+      const btn = document.querySelector('#form-reporte .ubic-btn');
+      btn.disabled = true;
+      btn.textContent = "Obteniendo ubicación...";
+      if (!navigator.geolocation) {
+        document.getElementById('reporte-msg').textContent = "GPS no disponible.";
+        btn.disabled = false;
+        btn.textContent = "Usar mi ubicación actual 📍";
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          document.getElementById('rep-lat').value = pos.coords.latitude.toFixed(6);
+          document.getElementById('rep-lng').value = pos.coords.longitude.toFixed(6);
+          btn.textContent = "Ubicación obtenida ✔️";
+          btn.disabled = false;
+          document.getElementById('reporte-msg').textContent = "";
+        },
+        (err) => {
+          document.getElementById('reporte-msg').textContent = "No se pudo obtener ubicación: " + err.message;
+          btn.textContent = "Usar mi ubicación actual 📍";
+          btn.disabled = false;
+        }
+      );
+    }
+
+    document.getElementById('form-reporte').onsubmit = async function(e) {
+      e.preventDefault();
+      const nombre = document.getElementById('rep-nombre').value.trim();
+      const tipo_problema = document.getElementById('rep-tipo').value.trim();
+      const observaciones = document.getElementById('rep-obs').value.trim();
+      const latitud = parseFloat(document.getElementById('rep-lat').value);
+      const longitud = parseFloat(document.getElementById('rep-lng').value);
+      const resultado = document.getElementById('reporte-msg');
+      resultado.textContent = "Enviando...";
+      const { error } = await supabaseClient
+        .from('reportes_usuario')
+        .insert([{ nombre, tipo_problema, observaciones, latitud, longitud }]);
+      resultado.textContent = error
+        ? "❌ Error al enviar: " + error.message
+        : "✅ Reporte enviado correctamente.";
+      if (!error) e.target.reset();
+    };
+  </script>
+</body>
+</html>
