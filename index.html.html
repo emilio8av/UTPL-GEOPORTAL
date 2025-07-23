@@ -1,0 +1,489 @@
+<!-- ==== BLOQUE 1: HEAD y PANEL LATERAL ==== -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Geoportal De Aseo- Quito</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <style>
+    body { margin: 0; padding: 0; padding-top: 46px;}
+    #map { height: 100vh; }
+    .layer-control {
+      position: absolute; top: 12px; left: 12px; z-index: 1000;
+      background: rgba(255,255,255,0.97); border-radius: 10px;
+      box-shadow: 0 2px 8px #8882; padding: 15px; font-family:sans-serif; font-size:15px;
+    }
+    .layer-control label { display:block; margin-bottom: 5px; cursor:pointer;}
+    .layer-control input { margin-right:7px;}
+    .header { font-weight:bold; margin-bottom:7px;}
+    #btnReportes {
+      display: block; margin: 18px auto 0 auto; width: 90%; padding: 10px 0;
+      background: #0066cc; color: #fff; border: none; border-radius: 8px;
+      box-shadow: 0 1px 8px #0003; cursor: pointer; font-size: 16px;
+    }
+    #btnActualizarReporte {
+      display: block; margin: 10px auto 0 auto; width: 90%; padding: 9px 0;
+      background: #228b22; color: #fff; border: none; border-radius: 8px;
+      box-shadow: 0 1px 8px #0003; cursor: pointer; font-size: 16px;
+    }
+    #modalReporte {
+      display:none; position:fixed; z-index:2000; top:0; left:0; width:100vw; height:100vh;
+      background:rgba(30,50,90,0.16); align-items:center; justify-content:center;
+    }
+    #formReporte {
+      background:#fff; padding:24px 18px 14px 18px; min-width:310px; max-width:97vw;
+      border-radius:20px; box-shadow:0 2px 24px #0003;
+    }
+    #titulo-geoportal {
+      position: fixed; top: 0; left: 0; width: 100vw; height: 46px;
+      background: linear-gradient(90deg, #009599 85%, #22c5b9 100%);
+      color: #fff; display: flex; align-items: center; justify-content: center;
+      font-family: 'Segoe UI', Arial, sans-serif; font-size: 2.1rem; font-weight: 900;
+      text-shadow: 0 2px 6px #0b586e77, 0 1px 0 #024a4c; z-index: 3000; letter-spacing: 1px;
+      border-bottom-left-radius: 0; border-bottom-right-radius: 0; box-shadow: none;
+      margin: 0; padding: 0;
+    }
+  </style>
+</head>
+<body>
+<div id="titulo-geoportal">GEOPORTAL DE ASEO - QUITO</div>
+<div id="map"></div>
+<div class="layer-control" id="layerControl">
+  <div class="header">Capas:</div>
+  <label><input type="checkbox" id="capa_contenedores">Contenedores</label>
+  <label><input type="checkbox" id="capa_barrido">Barrido manual</label>
+  <label><input type="checkbox" id="capa_geocercas" checked>Geocercas</label>
+  <label><input type="checkbox" id="capa_islas">Islas soterradas</label>
+  <label><input type="checkbox" id="capa_microrutas">Microrutas</label>
+  <div id="filtro-panel" style="margin-top:16px;padding:9px 7px 7px 7px;background:#f4f6fa;border-radius:9px;border:1px solid #d0dae5;">
+    <b>Filtrar por atributo:</b><br>
+    <select id="filtro-campo" style="margin-top:3px;width:99%;">
+      <option value="">Seleccione atributo</option>
+      <option value="ruta">Ruta</option>
+      <option value="hor_frec">Horario/Frecuencia</option>
+      <option value="servicio">Servicio</option>
+      <option value="adm_zonal">Administración Zonal</option>
+    </select><br>
+    <select id="filtro-valor" style="margin-top:5px;width:99%;">
+      <option value="">Seleccione valor</option>
+    </select><br>
+    <div style="margin-top:7px;">
+      <button id="btnFiltrar" style="padding:5px 14px; background:#00793d;color:white;border:none;border-radius:5px;">Aplicar filtro</button>
+      <button id="btnResetFiltro" style="padding:5px 14px; background:#888;color:white;border:none;border-radius:5px;">Restablecer</button>
+    </div>
+    <button id="btnReportes">Reportes Ciudadanos</button>
+    <button id="btnActualizarReporte">Actualizar Reporte</button>
+  </div>
+</div>
+<!-- ==== FIN BLOQUE 1 ==== -->
+  <!-- ==== BLOQUE 2: MODAL Y FORMULARIO DE REPORTES ==== -->
+<div id="modalReporte">
+  <form id="formReporte">
+    <h2 style="margin-bottom:8px;">Reporte Ciudadano</h2>
+    <label>Fecha<br>
+      <input name="fecha" type="datetime-local" style="width:100%;" required>
+    </label><br>
+    <label>Nombre Completo<br>
+      <input name="nombre_completo" required style="width:100%;">
+    </label><br>
+    <label>Teléfono<br>
+      <input name="telefono" required style="width:100%;">
+    </label><br>
+    <label>Correo electrónico<br>
+      <input name="correo_electronico" type="email" required style="width:100%;">
+    </label><br>
+    <label>Tipo de Problema<br>
+      <select name="tipo_problema" required style="width:100%;">
+        <option value="">Seleccione...</option>
+        <option>Contenerizado</option>
+        <option>Pie de vereda</option>
+        <option>Barrido</option>
+        <option>Hidrolavado</option>
+        <option>Terequez</option>
+      </select>
+    </label><br>
+    <label>Descripción<br>
+      <textarea name="descripcion" required style="width:100%;"></textarea>
+    </label><br>
+    <label>Latitud<br>
+      <input name="latitud" type="number" step="any" required style="width:100%;">
+    </label><br>
+    <label>Longitud<br>
+      <input name="longitud" type="number" step="any" required style="width:100%;">
+    </label><br>
+    <div style="display:flex;gap:8px;justify-content:right;">
+      <button type="button" id="cerrarModal" style="padding:6px 16px;background:#eee;">Cancelar</button>
+      <button type="submit" style="padding:6px 16px;background:#00793d;color:#fff;">Enviar</button>
+    </div>
+    <div id="msgReporte" style="margin-top:9px;color:#00793d;font-weight:bold;"></div>
+  </form>
+</div>
+<!-- ==== FIN BLOQUE 2 ==== -->
+<!-- ==== BLOQUE 3: SCRIPTS Y CIERRE DE HTML ==== -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+<script>
+// --- CONFIGURACIÓN SUPABASE ---
+const supabase = window.supabase.createClient(
+  'https://ijxzpcyujbwskivhliws.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlqeHpwY3l1amJ3c2tpdmhsaXdzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI5NTQ3NzMsImV4cCI6MjA2ODUzMDc3M30.19d2qycfTe8Ect_3FXiuaRZyILtgFDdyZawS3DUtHTY'
+);
+// --- CAPAS ---
+const tablas = {
+  contenedores: "contenedores",
+  barrido_manual: "barrido_manual",
+  geocercas: "geocercas",
+  islas_soterradas: "islas_soterradas",
+  microrutas: "microrutas"
+};
+const estilos = {
+  contenedores: { color: "#008800", radius: 5, fillOpacity: 0.7 },
+  barrido_manual: { color: "#8B4513", weight: 3 },
+  islas_soterradas: { color: "#FFD700", weight: 2, fillOpacity: 0.4 },
+  microrutas: { color: "#FF0000", weight: 2 }
+};
+function colorGeocerca(hor_frec) {
+  switch(hor_frec?.toUpperCase?.()) {
+    case "NOCTURNO, L-I-V": return "#003366";
+    case "DIURNO, L-I-V": return "#66B2FF";
+    case "DIURNO, M-J-S": return "#FF6666";
+    case "NOCTURNO, M-J-S": return "#990000";
+    case "NOCTURNO, DIARIO": return "#006600";
+    case "DIURNO, DIARIO": return "#8CF58C";
+    default: return "#A0A0A0";
+  }
+}
+// --- FUNCIONES DE GEOMETRÍA ---
+function WKTtoGeoJSON(wkt) {
+  if (typeof wkt !== 'string') return null;
+  wkt = wkt.trim();
+  let match, coords;
+  if ((match = wkt.match(/^POINT Z?\\s*\\(([-\\d\\.]+) ([-\\d\\.]+)(?: [-\\d\\.]+)?\\)$/i))) {
+    return { type: "Point", coordinates: [+match[1], +match[2]] };
+  } else if ((match = wkt.match(/^LINESTRING Z?\\s*\\((.+)\\)$/i))) {
+    coords = match[1].split(',').map(pt=>pt.trim().split(' ').slice(0,2).map(Number));
+    return { type: "LineString", coordinates: coords };
+  } else if ((match = wkt.match(/^POLYGON Z?\\s*\\(\\((.+)\\)\\)$/i))) {
+    coords = match[1].split(',').map(pt=>pt.trim().split(' ').slice(0,2).map(Number));
+    return { type: "Polygon", coordinates: [coords] };
+  }
+  return null;
+}
+async function cargarCapa(tabla, estilo, pointAsMarker = false, clasificador = null) {
+  let { data, error } = await supabase.from(tabla).select("*");
+  if (error || !data) { 
+    alert("Error cargando " + tabla + ": " + (error && error.message ? error.message : ''));
+    console.warn("Supabase error:", error);
+    return; 
+  }
+  if (!data.length) {
+    alert(`La tabla ${tabla} no tiene datos.`);
+    return;
+  }
+  console.log(`Primer registro de ${tabla}:`, data[0]);
+  const campoGeom = Object.keys(data[0]).find(k =>
+    typeof data[0][k] === "object" && data[0][k] && data[0][k].type && Array.isArray(data[0][k].coordinates)
+    || (typeof data[0][k] === "string" && /^(POINT|LINESTRING|POLYGON)/i.test(data[0][k]))
+    || (typeof data[0][k] === "string" && data[0][k].includes("coordinates"))
+  );
+  if (!campoGeom) {
+    alert(`No se detectó campo de geometría en la tabla ${tabla}.`);
+    return;
+  }
+  let geojson = {
+    type: "FeatureCollection",
+    features: data.map(row => {
+      let geometry;
+      const geomField = row[campoGeom];
+      if (typeof geomField === "string") {
+        try { geometry = JSON.parse(geomField); }
+        catch { geometry = WKTtoGeoJSON(geomField); }
+      } else if (geomField && typeof geomField === "object" && geomField.type) {
+        geometry = geomField;
+      }
+      if (!geometry || !geometry.type) return null;
+      return { type: "Feature", geometry, properties: { ...row } };
+    }).filter(f => f)
+  };
+  if (!geojson.features.length) {
+    alert(`No se pudo leer ninguna geometría válida en la tabla ${tabla}.`);
+    return;
+  }
+  let capa;
+  if (clasificador) {
+    capa = L.geoJSON(geojson, {
+      style: feature => ({ color: clasificador(feature.properties.hor_frec), weight: 3, fillOpacity: 0.3 }),
+      onEachFeature: (feature, layer) => {
+        let props = feature.properties;
+        let txt = Object.keys(props).map(k => `<b>${k}</b>: ${props[k]}`).join("<br>");
+        layer.bindPopup(txt);
+      }
+    });
+  } else if (pointAsMarker) {
+    capa = L.geoJSON(geojson, {
+      pointToLayer: (feature, latlng) =>
+        L.circleMarker(latlng, estilo).bindPopup(
+          `<b>ID:</b> ${feature.properties.id || ''}<br>` +
+          `<b>Ruta:</b> ${feature.properties.ruta || ''}<br>` +
+          `<b>Dirección:</b> ${feature.properties.direccion || ''}`
+        ),
+    });
+  } else {
+    capa = L.geoJSON(geojson, {
+      style: estilo,
+      onEachFeature: (feature, layer) => {
+        let props = feature.properties;
+        let txt = Object.keys(props).map(k => `<b>${k}</b>: ${props[k]}`).join("<br>");
+        layer.bindPopup(txt);
+      }
+    });
+  }
+  return capa;
+}
+// --- INICIALIZAR MAPA Y CAPAS ---
+const map = L.map('map').setView([-0.23, -78.52], 12);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: 'OpenStreetMap' }).addTo(map);
+let layers = {};
+async function cargarCapas() {
+  layers.contenedores = await cargarCapa(tablas.contenedores, estilos.contenedores, true);
+  layers.barrido_manual = await cargarCapa(tablas.barrido_manual, estilos.barrido_manual);
+  layers.geocercas = await cargarCapa(tablas.geocercas, null, false, colorGeocerca);
+  layers.islas_soterradas = await cargarCapa(tablas.islas_soterradas, estilos.islas_soterradas);
+  layers.microrutas = await cargarCapa(tablas.microrutas, estilos.microrutas);
+  Object.keys(layers).forEach(k => {
+    if (layers[k]) {
+      if (k === "geocercas") map.addLayer(layers[k]);
+      else map.removeLayer(layers[k]);
+    }
+  });
+}
+document.getElementById("capa_contenedores").addEventListener("change", e => toggleLayer("contenedores", e.target.checked));
+document.getElementById("capa_barrido").addEventListener("change", e => toggleLayer("barrido_manual", e.target.checked));
+document.getElementById("capa_geocercas").addEventListener("change", e => toggleLayer("geocercas", e.target.checked));
+document.getElementById("capa_islas").addEventListener("change", e => toggleLayer("islas_soterradas", e.target.checked));
+document.getElementById("capa_microrutas").addEventListener("change", e => toggleLayer("microrutas", e.target.checked));
+function toggleLayer(nombre, visible) {
+  if (layers[nombre]) {
+    if (visible) map.addLayer(layers[nombre]);
+    else map.removeLayer(layers[nombre]);
+  }
+}
+cargarCapas();
+
+  // =========== FILTRO UNIFICADO POR ATRIBUTO ==============
+function limpiarSelect(id, texto) {
+  const s = document.getElementById(id);
+  s.innerHTML = `<option value="">${texto}</option>`;
+}
+
+// Cuando cambias el atributo, carga los valores únicos para ese atributo de todas las tablas
+document.getElementById('filtro-campo').addEventListener('change', async function() {
+  limpiarSelect('filtro-valor', 'Seleccione valor');
+  const campo = this.value;
+  if (!campo) return;
+
+  let valoresUnicos = new Set();
+  // Recorremos todas las tablas relevantes
+  for (const t of Object.values(tablas)) {
+    let { data, error } = await supabase.from(t).select(campo);
+    if (error || !data) continue;
+    data.forEach(d => {
+      if (d[campo]) valoresUnicos.add(d[campo]);
+    });
+  }
+  const valorSel = document.getElementById('filtro-valor');
+  [...valoresUnicos].sort().forEach(v => {
+    const opt = document.createElement('option');
+    opt.value = v; opt.textContent = v;
+    valorSel.appendChild(opt);
+  });
+});
+
+  // ==== FILTRAR Y ZOOM AUTOMÁTICO ====
+document.getElementById('btnFiltrar').onclick = async function() {
+  const campo = document.getElementById('filtro-campo').value;
+  const valor = document.getElementById('filtro-valor').value;
+  if (!campo || !valor) {
+    alert('Seleccione un atributo y un valor para filtrar.');
+    return;
+  }
+  // Limpiar capas filtradas anteriores
+  Object.keys(layers).forEach(k => { if (layers[k]) map.removeLayer(layers[k]); });
+
+  let boundsList = [];
+  // Filtrar cada capa por el atributo seleccionado
+  for (const [key, tabla] of Object.entries(tablas)) {
+    let { data, error } = await supabase.from(tabla).select('*').eq(campo, valor);
+    if (error || !data || !data.length) continue;
+
+    // Detecta campo geométrico
+    const campoGeom = Object.keys(data[0]).find(k =>
+      typeof data[0][k] === "object" && data[0][k] && data[0][k].type && Array.isArray(data[0][k].coordinates)
+      || (typeof data[0][k] === "string" && /^(POINT|LINESTRING|POLYGON)/i.test(data[0][k]))
+      || (typeof data[0][k] === "string" && data[0][k].includes("coordinates"))
+    );
+    if (!campoGeom) continue;
+
+    let geojson = {
+      type: "FeatureCollection",
+      features: data.map(row => {
+        let geometry;
+        const geomField = row[campoGeom];
+        if (typeof geomField === "string") {
+          try { geometry = JSON.parse(geomField); }
+          catch { geometry = WKTtoGeoJSON(geomField); }
+        } else if (geomField && typeof geomField === "object" && geomField.type) {
+          geometry = geomField;
+        }
+        if (!geometry || !geometry.type) return null;
+        return { type: "Feature", geometry, properties: { ...row } };
+      }).filter(f => f)
+    };
+
+    // Dibuja y guarda los bounds
+    let layerFiltered = L.geoJSON(geojson, {
+      style: key === "geocercas"
+        ? feature => ({ color: colorGeocerca(feature.properties.hor_frec), weight: 3, fillOpacity: 0.3 })
+        : estilos[key] || {},
+      pointToLayer: (feature, latlng) => (key === "contenedores")
+        ? L.circleMarker(latlng, estilos.contenedores)
+        : L.marker(latlng),
+      onEachFeature: (feature, layer) => {
+        let props = feature.properties;
+        let txt = Object.keys(props).map(k => `<b>${k}</b>: ${props[k]}`).join("<br>");
+        layer.bindPopup(txt);
+      }
+    }).addTo(map);
+
+    layers[key] = layerFiltered;
+    // Guarda bounds para hacer zoom al conjunto filtrado
+    if (layerFiltered.getBounds && layerFiltered.getBounds().isValid()) {
+      boundsList.push(layerFiltered.getBounds());
+    }
+  }
+
+  // === Restablecer Filtro ===
+document.getElementById('btnResetFiltro').onclick = async function() {
+  // Quitar todas las capas
+  Object.keys(layers).forEach(k => { if (layers[k]) map.removeLayer(layers[k]); });
+  // Recargar todas las capas (según los checks)
+  await cargarCapas();
+  // Reset selects
+  document.getElementById('filtro-campo').value = "";
+  limpiarSelect('filtro-valor', 'Seleccione valor');
+};
+
+
+  // Hacer zoom al área filtrada si hay resultados
+  if (boundsList.length) {
+    let allBounds = boundsList.reduce((b, nb) => b.extend(nb), boundsList[0]);
+    map.fitBounds(allBounds.pad(0.15));
+  } else {
+    alert('No se encontraron resultados para ese filtro.');
+  }
+};
+
+
+
+// --- REPORTES CIUDADANOS ---
+const btnReportes = document.getElementById('btnReportes');
+const modalReporte = document.getElementById('modalReporte');
+const cerrarModal = document.getElementById('cerrarModal');
+const formReporte = document.getElementById('formReporte');
+const msgReporte = document.getElementById('msgReporte');
+const inputLat = formReporte.querySelector('input[name=\"latitud\"]');
+const inputLon = formReporte.querySelector('input[name=\"longitud\"]');
+btnReportes.onclick = () => {
+  modalReporte.style.display = 'flex';
+  msgReporte.textContent = 'Obteniendo ubicación...';
+  if(navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        inputLat.value = pos.coords.latitude.toFixed(7);
+        inputLon.value = pos.coords.longitude.toFixed(7);
+        msgReporte.textContent = '';
+      },
+      err => {
+        msgReporte.textContent = 'No se pudo obtener la ubicación automáticamente. Ingrésela manualmente.';
+        inputLat.value = '';
+        inputLon.value = '';
+      }
+    );
+  } else {
+    msgReporte.textContent = 'GPS no disponible, ingrese las coordenadas manualmente.';
+    inputLat.value = '';
+    inputLon.value = '';
+  }
+};
+cerrarModal.onclick = () => { modalReporte.style.display = 'none'; formReporte.reset(); msgReporte.textContent = ''; };
+formReporte.fecha.value = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0,16);
+formReporte.onsubmit = async e => {
+  e.preventDefault();
+  msgReporte.textContent = "Enviando...";
+  const fd = new FormData(formReporte);
+  const data = Object.fromEntries(fd.entries());
+  data.latitud = parseFloat(data.latitud);
+  data.longitud = parseFloat(data.longitud);
+  if(data.fecha) data.fecha = new Date(data.fecha).toISOString();
+  const { error } = await supabase
+    .from('reportes_ciudadanos')
+    .insert([data]);
+  if (error) {
+    msgReporte.textContent = 'Error al enviar reporte: ' + error.message;
+    msgReporte.style.color = 'red';
+  } else {
+    msgReporte.textContent = '¡Reporte enviado!';
+    msgReporte.style.color = '#00793d';
+    const marker = L.marker([data.latitud, data.longitud])
+      .addTo(map)
+      .bindPopup(
+        `<b>Reporte Ciudadano</b><br>
+        <b>Fecha:</b> ${data.fecha?.slice(0,16) || ''}<br>
+        <b>Nombre:</b> ${data.nombre_completo}<br>
+        <b>Tipo:</b> ${data.tipo_problema}<br>
+        <b>Descripción:</b> ${data.descripcion}`
+      ).openPopup();
+    map.setView([data.latitud, data.longitud], 16);
+    setTimeout(() => { modalReporte.style.display = 'none'; formReporte.reset(); msgReporte.textContent = ''; }, 1400);
+  }
+};
+// Mostrar todos los reportes ciudadanos
+let markersReportes = [];
+document.getElementById('btnActualizarReporte').onclick = async () => {
+  markersReportes.forEach(m => map.removeLayer(m));
+  markersReportes = [];
+  msgReporte.textContent = "Cargando reportes...";
+  const { data, error } = await supabase.from('reportes_ciudadanos').select('*');
+  if (error) {
+    alert('Error cargando reportes: ' + error.message);
+    msgReporte.textContent = '';
+    return;
+  }
+  if (!data || !data.length) {
+    msgReporte.textContent = 'No hay reportes registrados.';
+    return;
+  }
+  data.forEach(r => {
+    if(!r.latitud || !r.longitud) return;
+    const marker = L.marker([r.latitud, r.longitud])
+      .addTo(map)
+      .bindPopup(
+        `<b>Reporte Ciudadano</b><br>
+        <b>Fecha:</b> ${r.fecha ? r.fecha.slice(0,16).replace('T',' ') : ''}<br>
+        <b>Nombre:</b> ${r.nombre_completo}<br>
+        <b>Tipo:</b> ${r.tipo_problema}<br>
+        <b>Descripción:</b> ${r.descripcion || ''}`
+      );
+    markersReportes.push(marker);
+  });
+  if (markersReportes.length > 0) {
+    const group = L.featureGroup(markersReportes);
+    map.fitBounds(group.getBounds().pad(0.2));
+  }
+  msgReporte.textContent = `Se muestran ${data.length} reportes.`;
+};
+</script>
+</body>
+</html>
+<!-- ==== FIN BLOQUE 3 ==== -->
